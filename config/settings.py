@@ -32,7 +32,7 @@ class PolymarketConfig(BaseSettings):
     # Optional: Proxy wallet settings
     signature_type: int = Field(default=0, description="Signature type (0=EOA, 1=Email, 2=Browser)")
     funder_address: Optional[str] = Field(
-        default=None, description="Funder address for proxy wallets"
+        default="", description="Funder address for proxy wallets"
     )
 
     @field_validator("private_key")

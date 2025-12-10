@@ -12,7 +12,8 @@ client = ClobClient(
     host=config.host,
     chain_id=config.chain_id,
     key=config.private_key,
-    signature_type=0  
+    funder=config.funder_address,
+    signature_type=2
 )
 
 ## Create and sign a limit order buying 5 tokens for 0.010c each
@@ -21,9 +22,9 @@ client = ClobClient(
 client.set_api_creds(client.create_or_derive_api_creds()) 
 
 order_args = OrderArgs(
-    price=0.01,
+    price=0.008,
     size=100.0,
-    side=BUY,
+    side="SELL",
     token_id="114304586861386186441621124384163963092522056897081085884483958561365015034812", #Token ID you want to purchase goes here. Example token: 114304586861386186441621124384163963092522056897081085884483958561365015034812 ( Xi Jinping out in 2025, YES side )
 )
 signed_order = client.create_order(order_args)
