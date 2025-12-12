@@ -1,269 +1,131 @@
-# Polymarket Position Management Service
+# Polymarket Tools
 
-Semi-automated trading bot for Polymarket that maintains top-of-book positions while intelligently splitting orders to prevent trade detection.
+Trading tools for Polymarket prediction markets.
 
-## Features
+## Setup
 
-- **Auto Top-Bidder**: Automatically maintain best bid/ask position without crossing limit price
-- **Order Splitting**: Split large orders using SOTA algorithms (TWAP, VWAP, Iceberg, Randomized)
-- **Position Tracking**: Monitor current positions and P&L
-- **Risk Management**: Position size limits, daily loss limits, total exposure caps
-
-## Prerequisites
-
-- Python 3.9 or higher
-- [uv](https://github.com/astral-sh/uv) package manager
-- Ethereum wallet with private key
-- Polygon (MATIC) for gas fees
-- USDC on Polygon for trading
-
-## Installation
-
-### 1. Install Dependencies
-
-Using uv:
-
+1. Install dependencies:
 ```bash
-# Install dependencies
 uv pip install -e .
-
-# Or install with dev dependencies
-uv pip install -e ".[dev]"
 ```
 
-### 2. Configure Environment
-
-Copy the example environment file:
-
+2. Configure environment:
 ```bash
 cp .env.example .env
-```
-
-Edit `.env` with your credentials:
-
-```bash
-# Required: Your Ethereum private key (without 0x prefix)
-PRIVATE_KEY=your_private_key_here
-
-# Required: Market configuration
-TOKEN_ID=your_market_token_id
-SIDE=BUY
-LIMIT_PRICE=0.55
-TOTAL_SHARES=1000
-
-# Optional: Customize other settings
-SPLITTING_STRATEGY=TWAP
-TIME_WINDOW_MINUTES=60
-MIN_ORDER_SIZE=10
-MAX_ORDER_SIZE=100
-```
-
-### 3. Test Connection
-
-Verify your API connection:
-
-```bash
-uv run python check_connection.py
-```
-
-You should see output confirming:
-- ✓ Connection to Polymarket
-- ✓ API authentication
-- ✓ Market data retrieval
-- ✓ Order book access
-
-## Getting Your Credentials
-
-### Private Key
-
-1. **MetaMask**: Settings → Security & Privacy → Reveal Private Key
-2. **Other wallets**: Consult your wallet's documentation
-
-**⚠️ SECURITY WARNING**: Never share your private key or commit it to version control!
-
-### Token ID
-
-To find the token ID for a market:
-
-1. Visit the Polymarket market you want to trade
-2. Use the Polymarket API or inspect network requests
-3. Or use this helper script:
-
-```bash
-uv run python -c "
-from core.client import PolymarketClient
-from config.settings import PolymarketConfig
-
-config = PolymarketConfig(private_key='your_key')
-client = PolymarketClient(config)
-client.connect()
-
-markets = client.get_markets()
-for m in markets[:5]:
-    print(f\"{m['question']}: {m['tokens'][0]['token_id']}\")
-"
+# Edit .env with your credentials
 ```
 
 ## Configuration
 
-See `.env.example` for all available configuration options:
+### Environment Variables
 
-### Trading Strategy
-
-- `TOKEN_ID`: Market token to trade
-- `SIDE`: BUY or SELL
-- `LIMIT_PRICE`: Maximum price (0-1 range)
-- `TOTAL_SHARES`: Total shares to acquire
-
-### Order Splitting
-
-- `SPLITTING_STRATEGY`: TWAP, VWAP, ICEBERG, or RANDOM
-- `TIME_WINDOW_MINUTES`: Execute over this timeframe
-- `MIN_ORDER_SIZE` / `MAX_ORDER_SIZE`: Order size bounds
-
-### Risk Limits
-
-- `MAX_POSITION_SIZE`: Maximum shares per market
-- `MAX_TOTAL_EXPOSURE`: Maximum USD deployed
-- `MAX_DAILY_LOSS`: Daily loss threshold
-
-## Usage
-
-### Basic Usage (Coming Soon)
+Create a `.env` file with the following:
 
 ```bash
-# Run the trading bot
-uv run python main.py
+# Required: Your Ethereum private key (without 0x prefix)
+POLYMARKET_PRIVATE_KEY=your_64_character_hex_private_key
+
+# Optional: Connection settings (defaults shown)
+POLYMARKET_HOST=https://clob.polymarket.com
+POLYMARKET_CHAIN_ID=137
+
+# Signature Type:
+# 0 = EOA (Externally Owned Account) - standard wallet
+# 1 = Email/Social Login Proxy
+# 2 = Browser Wallet Proxy (MetaMask, Coinbase Wallet)
+POLYMARKET_SIGNATURE_TYPE=0
+
+# Required for proxy wallets (signature_type 1 or 2):
+POLYMARKET_FUNDER_ADDRESS=
+
+# Optional: API credentials for L2 auth (can be derived from private key)
+POLYMARKET_API_KEY=
+POLYMARKET_API_SECRET=
+POLYMARKET_API_PASSPHRASE=
 ```
 
-### Phase 1 Status (Current)
+### Loading Configuration
 
-✅ **Completed**:
-- Project structure
-- Configuration management with pydantic
-- Polymarket API client wrapper
-- Authentication and connection testing
-- Logging utilities
+```python
+from config.settings import load_config
 
-🚧 **In Progress**:
-- Top bidder strategy
-- Order splitting algorithms
-- Position tracking
-- Risk management
+# Load default .env
+config = load_config()
 
-## Project Structure
+# Load specific environment file
+config = load_config(".env.production")
 
-```
-polymarket-position-manage/
-├── config/
-│   ├── settings.py          # Configuration using pydantic-settings
-│   └── __init__.py
-├── core/
-│   ├── client.py            # Polymarket API client wrapper
-│   ├── order_manager.py     # Order lifecycle management (TODO)
-│   ├── position_tracker.py  # Position tracking (TODO)
-│   └── __init__.py
-├── strategies/
-│   ├── top_bidder.py        # Auto top-bidder logic (TODO)
-│   ├── order_splitter.py    # Order splitting algorithms (TODO)
-│   └── __init__.py
-├── risk/
-│   ├── limits.py            # Risk management (TODO)
-│   └── __init__.py
-├── utils/
-│   ├── logger.py            # Logging setup
-│   └── __init__.py
-├── check_connection.py      # Connection test script
-├── main.py                  # Entry point (TODO)
-├── .env.example             # Example configuration
-├── .gitignore
-├── pyproject.toml
-├── PLAN.md                  # Detailed implementation plan
-└── README.md                # This file
+# Use environment-specific file
+# export ENV=staging
+config = load_config()  # loads .env.staging
 ```
 
-## Development
+Configuration priority (highest to lowest):
+1. System environment variables
+2. `.env` file
+3. Default values
 
-### Code Quality
+## First Trade
 
-Format code:
+Run your first trade using `code/first_trade.py`:
+
+```python
+from py_clob_client.client import ClobClient
+from py_clob_client.clob_types import OrderArgs, OrderType
+from config.settings import load_config
+
+# 1. Load configuration
+config = load_config()
+
+# 2. Initialize client (choose based on your wallet type)
+# For Browser Wallet (MetaMask, Coinbase Wallet):
+client = ClobClient(
+    host=config.host,
+    chain_id=config.chain_id,
+    key=config.private_key,
+    funder=config.funder_address,
+    signature_type=2
+)
+
+# For standard EOA wallet:
+# client = ClobClient(
+#     host=config.host,
+#     chain_id=config.chain_id,
+#     key=config.private_key,
+#     signature_type=0
+# )
+
+# 3. Enable full trading (derives API credentials)
+client.set_api_creds(client.create_or_derive_api_creds())
+
+# 4. Create order
+order_args = OrderArgs(
+    price=0.008,           # Price per share (0-1 range)
+    size=100.0,            # Number of shares
+    side="SELL",           # "BUY" or "SELL"
+    token_id="114304..."   # Market token ID
+)
+
+# 5. Sign and post order
+signed_order = client.create_order(order_args)
+resp = client.post_order(signed_order, OrderType.GTC)
+print(resp)
+```
+
+Execute the script:
 ```bash
-uv run black .
+uv run python code/first_trade.py
 ```
 
-Lint code:
-```bash
-uv run ruff check .
-```
+## Security
 
-Type check:
-```bash
-uv run mypy .
-```
-
-### Running Tests
-
-```bash
-uv run pytest
-```
-
-## Security Best Practices
-
-1. **Never commit `.env`** - It's in `.gitignore` by default
-2. **Use environment-specific keys** - Don't use your main wallet for testing
-3. **Start small** - Test with minimal amounts first
-4. **Monitor closely** - Always watch the bot during initial runs
-5. **Set conservative limits** - Use risk limits to prevent large losses
-
-## API Rate Limits
-
-Polymarket CLOB API limits:
-- General endpoints: 5,000 requests / 10 seconds
-- Market data: 200 requests / 10 seconds
-- Order placement: 2,400 / 10s (burst) or 24,000 / 10 min (sustained)
-
-The client handles rate limiting automatically.
-
-## Troubleshooting
-
-### "No module named 'pydantic'"
-
-Install dependencies:
-```bash
-uv pip install -e .
-```
-
-### "Private key must be 64 hex characters"
-
-Ensure your private key:
-- Is exactly 64 characters
-- Contains only hex (0-9, a-f)
-- Does NOT include the "0x" prefix
-
-### "Failed to connect to Polymarket"
-
-Check:
-1. Internet connection
-2. Private key is valid
-3. Wallet has USDC and MATIC on Polygon
-
-### "Token ID not found"
-
-Verify:
-1. Token ID is correct for your target market
-2. Market is still active
-3. You're using the correct token (YES or NO outcome)
+- Never commit `.env` files (already in `.gitignore`)
+- Private key must be 64 hex characters without `0x` prefix
+- Test with small amounts first
+- Use separate test wallets for development
 
 ## Resources
 
-- [Polymarket Documentation](https://docs.polymarket.com/)
+- [Polymarket API Documentation](https://docs.polymarket.com/)
 - [py-clob-client GitHub](https://github.com/Polymarket/py-clob-client)
-- [Implementation Plan](PLAN.md)
-
-## License
-
-This project is for educational and personal use only. Use at your own risk.
-
-## Disclaimer
-
-This software is provided "as is" without warranty. Trading prediction markets involves risk. Only trade with funds you can afford to lose. The authors are not responsible for any losses incurred through use of this software.
+- [AI Contributors Guide](CLAUDE.md)

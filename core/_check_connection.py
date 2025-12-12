@@ -2,8 +2,9 @@
 
 import sys
 
-from config.settings import load_settings
 from core.client import PolymarketClient
+
+from config.settings import load_settings
 from utils.logger import setup_logger
 
 
