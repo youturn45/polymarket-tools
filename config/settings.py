@@ -17,13 +17,8 @@ class PolymarketConfig(BaseSettings):
         env_prefix="POLYMARKET_",
     )
 
-    # L1 Authentication: Private key (required for trading)
+    # Authentication: Private key (required for trading)
     private_key: str = Field(description="Ethereum private key without 0x prefix")
-
-    # L2 Authentication: API credentials (optional, for full trading access)
-    api_key: Optional[str] = Field(default=None, description="Polymarket API key")
-    api_secret: Optional[str] = Field(default=None, description="Polymarket API secret")
-    api_passphrase: Optional[str] = Field(default=None, description="Polymarket API passphrase")
 
     # Connection settings
     host: str = Field(default="https://clob.polymarket.com", description="Polymarket API host")
@@ -49,30 +44,6 @@ class PolymarketConfig(BaseSettings):
         except ValueError:
             raise ValueError("Private key must be valid hex") from None
         return v
-
-    def has_l1_auth(self) -> bool:
-        """Check if L1 (private key) authentication is available."""
-        return self.private_key is not None
-
-    def has_l2_auth(self) -> bool:
-        """Check if L2 (API credentials) authentication is available."""
-        return (
-            self.api_key is not None
-            and self.api_secret is not None
-            and self.api_passphrase is not None
-        )
-
-    def get_auth_level(self) -> str:
-        """
-        Get the authentication level available.
-
-        Returns:
-            "L1": Private key only (can create orders, derive API creds)
-            "L2": Private key + API creds (full trading with post/cancel)
-        """
-        if self.has_l2_auth():
-            return "L2"
-        return "L1"
 
 
 def load_config(env_file: Optional[str] = None) -> PolymarketConfig:
@@ -133,13 +104,7 @@ if __name__ == "__main__":
     print(f"Polymarket Host: {config.host}")
     print(f"Chain ID: {config.chain_id}")
     print(f"Signature Type: {config.signature_type}")
-    print(f"Auth Level: {config.get_auth_level()}")
 
-    # Show authentication status
     if config.private_key:
         print(f"Private Key: {config.private_key[:10]}...")
-    if config.has_l2_auth():
-        print(f"API Key: {config.api_key}")
-        print("L2 Auth: Enabled (full trading)")
-    else:
-        print("L2 Auth: Disabled (use generate_api_creds to enable)")
+        print("Authentication: Ready (API creds will be generated on-the-fly)")
