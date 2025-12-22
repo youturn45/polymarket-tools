@@ -33,24 +33,14 @@ class PolymarketClient:
         # Initialize the underlying CLOB client
         self.client = self._initialize_client()
 
-        # Set up L2 authentication if available
-        if config.has_l2_auth():
-            self.client.set_api_creds(
-                {
-                    "key": config.api_key,
-                    "secret": config.api_secret,
-                    "passphrase": config.api_passphrase,
-                }
-            )
-            self.logger.info("Initialized with L2 authentication")
-        else:
-            # Derive API credentials if only L1 auth available
-            try:
-                creds = self.client.create_or_derive_api_creds()
-                self.client.set_api_creds(creds)
-                self.logger.info("Derived L2 credentials from private key")
-            except Exception as e:
-                self.logger.warning(f"Could not derive L2 credentials: {e}")
+        # Generate API credentials on-the-fly
+        try:
+            creds = self.client.create_or_derive_api_creds()
+            self.client.set_api_creds(creds)
+            self.logger.info("API credentials generated successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to generate API credentials: {e}")
+            raise
 
     def _initialize_client(self) -> ClobClient:
         """Initialize the underlying ClobClient based on configuration."""

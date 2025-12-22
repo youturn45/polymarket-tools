@@ -35,7 +35,7 @@ def main():
     # Load configuration
     logger.info("Loading configuration...")
     config = load_config()
-    logger.info(f"Configuration loaded - Auth level: {config.get_auth_level()}")
+    logger.info("Configuration loaded successfully")
 
     # Initialize client
     logger.info("Initializing Polymarket client...")

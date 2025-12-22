@@ -55,24 +55,9 @@ POLYMARKET_SIGNATURE_TYPE=2
 POLYMARKET_FUNDER_ADDRESS=0x...
 ```
 
-### Authentication Levels
+### Authentication
 
-**L1 (Private Key Only):**
-- Can create and sign orders
-- Can derive API credentials
-- Use `client.create_or_derive_api_creds()` to enable L2
-
-**L2 (Private Key + API Credentials):**
-- Full trading access
-- Can post and cancel orders
-- Requires API key, secret, and passphrase
-
-Check auth level:
-```python
-config.get_auth_level()  # Returns "L1" or "L2"
-config.has_l1_auth()     # True if private_key available
-config.has_l2_auth()     # True if API creds available
-```
+The system automatically generates API credentials from your private key when initializing the client. You only need to provide your private key - API credentials are derived on-the-fly using `client.create_or_derive_api_creds()`.
 
 ### Private Key Validation
 
