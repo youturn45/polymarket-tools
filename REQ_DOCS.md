@@ -56,7 +56,7 @@ This system provides automated order execution on Polymarket prediction markets 
 - Order Queue Manager runs an `asyncio.Queue`, accepting requests from CLI/HTTP and returning an `order_id` immediately. Each worker coroutine pops orders, stamps metadata, and hands them to the Strategy Engine.
 - Market Monitor maintains a live cache (WebSocket if available, otherwise polling) of order books, trades, and our open orders, exposing read-only snapshots to strategy/executor.
 - Strategy Engine converts total order intent into tranche plans (size/price targets) based on the latest market snapshot and urgency configuration.
-- Order Executor wraps `py-clob-client` to place/cancel/replace Polymarket limit orders and to query fills. It should support both L1 signing and L2 API creds.
+- Order Executor wraps `py-clob-client` to place/cancel/replace Polymarket limit orders and to query fills. API credentials are automatically generated from the private key.
 - Shared event bus/logger emits lifecycle events so monitoring/metrics remain decoupled from execution.
 
 **How orders hit the Polymarket book (core interaction):**
@@ -1059,11 +1059,11 @@ monitoring:
 
 ```bash
 # .env file
-POLYMARKET_API_KEY=your_api_key_here
-POLYMARKET_API_SECRET=your_api_secret_here
-POLYMARKET_API_PASSPHRASE=your_passphrase_here
-WALLET_PRIVATE_KEY=your_private_key_here
-PROXY_WALLET_ADDRESS=your_proxy_address_here
+POLYMARKET_PRIVATE_KEY=your_private_key_here
+POLYMARKET_SIGNATURE_TYPE=0  # 0=EOA, 1=Email, 2=Browser
+POLYMARKET_FUNDER_ADDRESS=your_funder_address_here  # Required for proxy wallets
+
+# Note: API credentials (key/secret/passphrase) are auto-generated from PRIVATE_KEY
 ```
 
 ---

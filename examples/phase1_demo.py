@@ -48,15 +48,15 @@ def main():
         order_id=f"demo-{uuid.uuid4().hex[:8]}",
         market_id="market-demo",
         token_id="114304586861386186441621124384163963092522056897081085884483958561365015034812",
-        side=OrderSide.BUY,
-        total_size=10,  # Small size for demo
-        target_price=0.45,
-        max_price=0.50,
-        min_price=0.40,
+        side=OrderSide.SELL,
+        total_size=100,  # Small size for demo
+        target_price=0.04,
+        max_price=0.08,
+        min_price=0.01,
         urgency=Urgency.MEDIUM,
         strategy_params=StrategyParams(
-            initial_tranche_size=10,
-            min_tranche_size=5,
+            initial_tranche_size=50,
+            min_tranche_size=10,
             max_tranche_size=20,
         ),
     )

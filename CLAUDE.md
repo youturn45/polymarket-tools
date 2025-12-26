@@ -34,7 +34,7 @@ config = load_config()
 
 **Authentication:**
 - `private_key` (required): Ethereum private key without `0x` prefix
-- `api_key`, `api_secret`, `api_passphrase` (optional): L2 API credentials for full trading
+  - API credentials are auto-generated from this key - no need to provide them manually
 
 **Connection:**
 - `host`: API endpoint (default: `https://clob.polymarket.com`)
@@ -89,7 +89,7 @@ client = ClobClient(
     signature_type=2
 )
 
-# 3. Derive API credentials (upgrades L1 to L2 auth)
+# 3. Generate API credentials from private key
 client.set_api_creds(client.create_or_derive_api_creds())
 
 # 4. Create order arguments
@@ -173,10 +173,7 @@ POLYMARKET_CHAIN_ID=137
 POLYMARKET_SIGNATURE_TYPE=0  # 0=EOA, 1=Email, 2=Browser
 POLYMARKET_FUNDER_ADDRESS=   # Required for signature_type 1 or 2
 
-# L2 API Credentials (optional - can be derived)
-POLYMARKET_API_KEY=
-POLYMARKET_API_SECRET=
-POLYMARKET_API_PASSPHRASE=
+# Note: API credentials are auto-generated from PRIVATE_KEY - no need to set them
 ```
 
 ## Project Structure

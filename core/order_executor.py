@@ -1,4 +1,4 @@
-"""Simple order executor for Phase 1 - single order execution."""
+"""Order executor for single and iceberg order execution."""
 
 import logging
 import time
@@ -7,13 +7,15 @@ from typing import Optional
 from py_clob_client.clob_types import OrderType
 
 from api.polymarket_client import PolymarketClient
+from core.fill_tracker import FillTracker
 from models.enums import OrderStatus
 from models.order import Order
+from strategies.iceberg import IcebergStrategy
 from utils.logger import log_order_event
 
 
 class OrderExecutor:
-    """Executes single orders on Polymarket with basic monitoring."""
+    """Executes single and iceberg orders on Polymarket with monitoring."""
 
     def __init__(
         self,
@@ -234,3 +236,240 @@ class OrderExecutor:
                 return int(float(filled))
 
         return 0
+
+    def execute_iceberg_order(
+        self,
+        order: Order,
+        order_type: OrderType = OrderType.GTC,
+    ) -> Order:
+        """Execute order using iceberg strategy (split into tranches).
+
+        Args:
+            order: Order to execute with iceberg strategy
+            order_type: Order type (GTC, FOK, GTD)
+
+        Returns:
+            Updated order with final status
+        """
+        self.logger.info(
+            f"Starting iceberg execution: {order.side.value} {order.total_size} shares @ ${order.target_price}"
+        )
+
+        # Initialize strategy and tracker
+        strategy = IcebergStrategy(order.strategy_params)
+        tracker = FillTracker(order.total_size)
+
+        # Update order status
+        order.update_status(OrderStatus.ACTIVE)
+
+        log_order_event(
+            self.logger,
+            "iceberg_started",
+            order.order_id,
+            f"Starting iceberg execution: {order.side.value} {order.total_size} shares",
+            market_id=order.market_id,
+            extra_data={
+                "total_size": order.total_size,
+                "price": order.target_price,
+                "strategy": order.strategy_params.model_dump(),
+            },
+        )
+
+        try:
+            tranche_number = 0
+
+            while not tracker.is_complete():
+                tranche_number += 1
+                is_first_tranche = tranche_number == 1
+
+                # Calculate tranche size
+                tranche_size = strategy.calculate_next_tranche_size(
+                    remaining_size=tracker.total_remaining,
+                    is_first_tranche=is_first_tranche,
+                )
+
+                if tranche_size == 0:
+                    break
+
+                self.logger.info(
+                    f"Executing tranche {tranche_number}: {tranche_size} shares @ ${order.target_price}"
+                )
+
+                log_order_event(
+                    self.logger,
+                    "tranche_started",
+                    order.order_id,
+                    f"Tranche {tranche_number}: {tranche_size} shares",
+                    market_id=order.market_id,
+                    extra_data={
+                        "tranche_number": tranche_number,
+                        "tranche_size": tranche_size,
+                        "remaining": tracker.total_remaining,
+                    },
+                )
+
+                # Place tranche order
+                try:
+                    response = self.client.place_order(
+                        token_id=order.token_id,
+                        price=order.target_price,
+                        size=float(tranche_size),
+                        side=order.side.value,
+                        order_type=order_type,
+                    )
+
+                    exchange_order_id = self._extract_order_id(response)
+
+                    # Monitor tranche until filled or timeout
+                    filled_amount = self._monitor_tranche(order, exchange_order_id, tranche_size)
+
+                    # Record fill in tracker
+                    tracker.record_tranche_fill(
+                        tranche_number=tranche_number,
+                        size=tranche_size,
+                        filled=filled_amount,
+                        price=order.target_price,
+                    )
+
+                    # Update order
+                    if filled_amount > 0:
+                        order.record_fill(filled_amount)
+
+                    log_order_event(
+                        self.logger,
+                        "tranche_completed",
+                        order.order_id,
+                        f"Tranche {tranche_number} filled: {filled_amount}/{tranche_size}",
+                        market_id=order.market_id,
+                        extra_data={
+                            "tranche_number": tranche_number,
+                            "filled": filled_amount,
+                            "size": tranche_size,
+                            "total_filled": tracker.total_filled,
+                        },
+                    )
+
+                    # If partial fill or no fill, stop execution
+                    if filled_amount < tranche_size:
+                        self.logger.warning(
+                            f"Tranche {tranche_number} only filled {filled_amount}/{tranche_size} - stopping"
+                        )
+                        break
+
+                except Exception as e:
+                    self.logger.error(f"Tranche {tranche_number} failed: {e}")
+                    break
+
+                # Inter-tranche delay (if not complete)
+                if not tracker.is_complete():
+                    delay = strategy.calculate_inter_tranche_delay()
+                    self.logger.info(f"Waiting {delay:.2f}s before next tranche...")
+                    time.sleep(delay)
+
+            # Final status update
+            if tracker.is_complete():
+                order.update_status(OrderStatus.COMPLETED)
+                log_order_event(
+                    self.logger,
+                    "iceberg_completed",
+                    order.order_id,
+                    f"Iceberg order completed: {tracker.total_filled} shares filled",
+                    market_id=order.market_id,
+                    extra_data={
+                        "total_filled": tracker.total_filled,
+                        "tranches": tranche_number,
+                        "average_price": tracker.average_fill_price,
+                    },
+                )
+            elif tracker.total_filled > 0:
+                order.update_status(OrderStatus.PARTIALLY_FILLED)
+                log_order_event(
+                    self.logger,
+                    "iceberg_partially_filled",
+                    order.order_id,
+                    f"Iceberg partially filled: {tracker.total_filled}/{order.total_size}",
+                    market_id=order.market_id,
+                    extra_data={
+                        "filled": tracker.total_filled,
+                        "total": order.total_size,
+                        "tranches": tranche_number,
+                    },
+                )
+            else:
+                order.update_status(OrderStatus.FAILED)
+                log_order_event(
+                    self.logger,
+                    "iceberg_failed",
+                    order.order_id,
+                    "Iceberg order failed - no fills",
+                    market_id=order.market_id,
+                )
+
+            return order
+
+        except Exception as e:
+            self.logger.error(f"Iceberg execution failed: {e}", exc_info=True)
+            order.update_status(OrderStatus.FAILED)
+
+            log_order_event(
+                self.logger,
+                "iceberg_failed",
+                order.order_id,
+                f"Iceberg execution failed: {str(e)}",
+                market_id=order.market_id,
+                extra_data={"error": str(e)},
+            )
+
+            raise
+
+    def _monitor_tranche(self, order: Order, exchange_order_id: str, tranche_size: int) -> int:
+        """Monitor a single tranche until filled or timeout.
+
+        Args:
+            order: Parent order
+            exchange_order_id: Exchange order ID
+            tranche_size: Size of this tranche
+
+        Returns:
+            Amount filled
+        """
+        start_time = time.time()
+
+        self.logger.debug(f"Monitoring tranche {exchange_order_id} (timeout in {self.timeout}s)")
+
+        while True:
+            elapsed = time.time() - start_time
+
+            # Check timeout
+            if elapsed >= self.timeout:
+                self.logger.warning(f"Tranche timeout after {self.timeout}s")
+                break
+
+            # Get order status
+            try:
+                status_response = self.client.get_order_status(exchange_order_id)
+                filled_amount = self._extract_filled_amount(status_response)
+
+                # Check if filled
+                if filled_amount >= tranche_size:
+                    self.logger.debug(f"Tranche fully filled: {filled_amount} shares")
+                    return filled_amount
+
+                # Check for partial fill
+                if filled_amount > 0:
+                    self.logger.debug(f"Tranche partial fill: {filled_amount}/{tranche_size}")
+
+            except Exception as e:
+                self.logger.warning(f"Error checking tranche status: {e}")
+
+            # Wait before next check
+            time.sleep(self.poll_interval)
+
+        # Timeout - get final status
+        try:
+            status_response = self.client.get_order_status(exchange_order_id)
+            filled_amount = self._extract_filled_amount(status_response)
+            return filled_amount
+        except Exception as e:
+            self.logger.error(f"Failed to get final tranche status: {e}")
+            return 0

@@ -38,10 +38,7 @@ POLYMARKET_SIGNATURE_TYPE=0
 # Required for proxy wallets (signature_type 1 or 2):
 POLYMARKET_FUNDER_ADDRESS=
 
-# Optional: API credentials for L2 auth (can be derived from private key)
-POLYMARKET_API_KEY=
-POLYMARKET_API_SECRET=
-POLYMARKET_API_PASSPHRASE=
+# Note: API credentials are automatically generated from your private key
 ```
 
 ### Loading Configuration

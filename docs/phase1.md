@@ -151,7 +151,7 @@ Properties:
 Wrapper around `py-clob-client` with error handling and retry logic.
 
 **Features:**
-- Automatic L2 credential derivation from L1 auth
+- Automatic API credential generation from private key
 - Exponential backoff retry (3 attempts by default)
 - Comprehensive error logging
 - Support for all signature types (EOA, Email, Browser)
@@ -624,7 +624,7 @@ python examples/phase1_demo.py
 # Expected output:
 # 2025-12-15 10:30:00 - phase1_demo - INFO - === Phase 1 Demo: Single Order Execution ===
 # 2025-12-15 10:30:00 - phase1_demo - INFO - Loading configuration...
-# 2025-12-15 10:30:00 - phase1_demo - INFO - Configuration loaded - Auth level: L2
+# 2025-12-15 10:30:00 - phase1_demo - INFO - Configuration loaded successfully
 # 2025-12-15 10:30:01 - phase1_demo - INFO - Initializing Polymarket client...
 # ...
 ```
@@ -644,7 +644,7 @@ python examples/phase1_demo.py
 - Activate virtual environment: `source .venv/bin/activate`
 
 **Issue: "Order placement fails"**
-- Verify L2 authentication is set up (check logs for "L2 Auth: Enabled")
+- Check logs for "API credentials generated successfully"
 - Ensure sufficient balance for the order
 - Check market_id and token_id are valid
 
