@@ -197,3 +197,24 @@ class PolymarketClient:
                 else:
                     self.logger.error(f"Failed to get order book after {self.max_retries} attempts")
                     raise
+
+    def get_orders(self, token_id: Optional[str] = None) -> list:
+        """Get open orders for the API key.
+
+        Args:
+            token_id: Optional token ID to filter orders
+
+        Returns:
+            List of open orders
+        """
+        try:
+            from py_clob_client.clob_types import OpenOrderParams
+
+            # Create params with optional token filter
+            params = OpenOrderParams(asset_id=token_id) if token_id else None
+            response = self.client.get_orders(params=params)
+            return response if response else []
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get orders: {e}")
+            return []

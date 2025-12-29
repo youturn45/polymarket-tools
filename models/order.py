@@ -35,8 +35,10 @@ class Order(BaseModel):
 
     # Identification
     order_id: str = Field(description="Unique order identifier")
-    market_id: str = Field(description="Polymarket market/condition ID")
     token_id: str = Field(description="Token ID (YES/NO token)")
+    market_id: Optional[str] = Field(
+        default=None, description="Optional market/condition ID for tracking"
+    )
 
     # Order parameters
     side: OrderSide = Field(description="BUY or SELL")

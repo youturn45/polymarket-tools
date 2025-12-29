@@ -3,7 +3,7 @@
 import pytest
 
 from models.enums import OrderSide, OrderStatus, Urgency
-from models.market import MarketConditions
+from models.market import MarketConditions, MarketSnapshot
 from models.order import Order, StrategyParams
 
 
@@ -176,3 +176,110 @@ def test_market_conditions_mid_price():
     )
 
     assert conditions.mid_price == 0.45
+
+
+def test_market_snapshot_creation():
+    """Test MarketSnapshot creation."""
+    snapshot = MarketSnapshot(
+        token_id="token-123",
+        best_bid=0.44,
+        best_ask=0.46,
+        spread=0.02,
+        bid_depth=1000,
+        ask_depth=800,
+        micro_price=0.45,
+        micro_price_upper_band=0.4525,
+        micro_price_lower_band=0.4475,
+    )
+
+    assert snapshot.best_bid == 0.44
+    assert snapshot.best_ask == 0.46
+    assert snapshot.micro_price == 0.45
+    assert snapshot.mid_price == 0.45
+
+
+def test_market_snapshot_is_price_in_bounds():
+    """Test price bounds checking."""
+    snapshot = MarketSnapshot(
+        token_id="token-123",
+        best_bid=0.44,
+        best_ask=0.46,
+        spread=0.02,
+        bid_depth=1000,
+        ask_depth=800,
+        micro_price=0.45,
+        micro_price_upper_band=0.46,
+        micro_price_lower_band=0.44,
+    )
+
+    # Price in bounds
+    assert snapshot.is_price_in_bounds(0.45)
+    assert snapshot.is_price_in_bounds(0.44)
+    assert snapshot.is_price_in_bounds(0.46)
+
+    # Price out of bounds
+    assert not snapshot.is_price_in_bounds(0.43)
+    assert not snapshot.is_price_in_bounds(0.47)
+
+
+def test_market_snapshot_distance_from_micro_price():
+    """Test micro-price distance calculation."""
+    snapshot = MarketSnapshot(
+        token_id="token-123",
+        best_bid=0.44,
+        best_ask=0.46,
+        spread=0.02,
+        bid_depth=1000,
+        ask_depth=800,
+        micro_price=0.50,
+        micro_price_upper_band=0.51,
+        micro_price_lower_band=0.49,
+    )
+
+    # Exact match
+    assert snapshot.distance_from_micro_price(0.50) == 0.0
+
+    # 10% away
+    assert abs(snapshot.distance_from_micro_price(0.55) - 0.1) < 0.0001
+    assert abs(snapshot.distance_from_micro_price(0.45) - 0.1) < 0.0001
+
+
+def test_market_snapshot_get_spread_bps():
+    """Test spread in basis points calculation."""
+    snapshot = MarketSnapshot(
+        token_id="token-123",
+        best_bid=0.44,
+        best_ask=0.46,
+        spread=0.02,
+        bid_depth=1000,
+        ask_depth=800,
+        micro_price=0.45,
+        micro_price_upper_band=0.46,
+        micro_price_lower_band=0.44,
+    )
+
+    # spread = 0.02, mid = 0.45
+    # 0.02 / 0.45 = 0.0444... * 10000 = 444 bps
+    assert snapshot.get_spread_bps() == 444
+
+
+def test_market_snapshot_with_order_book():
+    """Test MarketSnapshot with full order book."""
+    snapshot = MarketSnapshot(
+        token_id="token-123",
+        best_bid=0.44,
+        best_ask=0.46,
+        spread=0.02,
+        bid_depth=1000,
+        ask_depth=800,
+        micro_price=0.45,
+        micro_price_upper_band=0.46,
+        micro_price_lower_band=0.44,
+        bids=[(0.44, 1000), (0.43, 500), (0.42, 300)],
+        asks=[(0.46, 800), (0.47, 600), (0.48, 400)],
+    )
+
+    assert len(snapshot.bids) == 3
+    assert len(snapshot.asks) == 3
+    assert snapshot.bids[0] == (0.44, 1000)
+    assert snapshot.asks[0] == (0.46, 800)
