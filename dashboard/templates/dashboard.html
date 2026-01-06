@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polymarket Trading Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 24px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .last-update {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .card-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #666;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-buy {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-sell {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-active {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .amount-positive {
+            color: #059669;
+            font-weight: 600;
+        }
+
+        .amount-negative {
+            color: #dc2626;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Polymarket Trading Dashboard</h1>
+            <div class="status">
+                <div class="status-dot"></div>
+                <span class="last-update">Last updated: <span id="lastUpdate">Loading...</span></span>
+            </div>
+        </header>
+
+        <div class="summary-cards" id="summaryCards">
+            <div class="card">
+                <div class="card-title">Total Orders</div>
+                <div class="card-value" id="totalOrders">-</div>
+                <div class="card-subtitle">Active positions</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Buy Orders</div>
+                <div class="card-value" id="buyOrders">-</div>
+                <div class="card-subtitle">Long positions</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Sell Orders</div>
+                <div class="card-value" id="sellOrders">-</div>
+                <div class="card-subtitle">Short positions</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Buy Exposure</div>
+                <div class="card-value" id="buyExposure">$0.00</div>
+                <div class="card-subtitle">Total buy value</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Sell Exposure</div>
+                <div class="card-value" id="sellExposure">$0.00</div>
+                <div class="card-subtitle">Total sell value</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Net Exposure</div>
+                <div class="card-value" id="netExposure">$0.00</div>
+                <div class="card-subtitle">Net position</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Open Orders</h2>
+                <button class="refresh-btn" onclick="refreshData()">Refresh</button>
+            </div>
+            <div id="ordersContent">
+                <div class="loading">Loading orders...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Recent Trades</h2>
+            </div>
+            <div id="tradesContent">
+                <div class="loading">Loading trades...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval;
+        const REFRESH_INTERVAL = 10000; // 10 seconds
+
+        function formatTime(timestamp) {
+            if (!timestamp || timestamp === 'N/A') return 'N/A';
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString();
+            } catch {
+                return timestamp;
+            }
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(value);
+        }
+
+        function updateSummary(data) {
+            if (data.success && data.summary) {
+                const s = data.summary;
+                document.getElementById('totalOrders').textContent = s.total_orders;
+                document.getElementById('buyOrders').textContent = s.buy_orders;
+                document.getElementById('sellOrders').textContent = s.sell_orders;
+                document.getElementById('buyExposure').textContent = formatCurrency(s.buy_exposure);
+                document.getElementById('sellExposure').textContent = formatCurrency(s.sell_exposure);
+
+                const netElement = document.getElementById('netExposure');
+                netElement.textContent = formatCurrency(Math.abs(s.net_exposure));
+                netElement.className = s.net_exposure >= 0 ? 'card-value amount-positive' : 'card-value amount-negative';
+            }
+        }
+
+        function updateOrders(data) {
+            const container = document.getElementById('ordersContent');
+
+            if (!data.success) {
+                container.innerHTML = `<div class="error-message">Error: ${data.error}</div>`;
+                return;
+            }
+
+            if (!data.orders || data.orders.length === 0) {
+                container.innerHTML = '<div class="empty-state">No open orders</div>';
+                return;
+            }
+
+            const table = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Side</th>
+                            <th>Size</th>
+                            <th>Filled</th>
+                            <th>Price</th>
+                            <th>Fill %</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.orders.map(order => `
+                            <tr>
+                                <td>${order.id.substring(0, 8)}...</td>
+                                <td><span class="badge badge-${order.side.toLowerCase()}">${order.side}</span></td>
+                                <td>${order.size.toFixed(2)}</td>
+                                <td>${order.filled.toFixed(2)}</td>
+                                <td>${formatCurrency(order.price)}</td>
+                                <td>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: ${order.fill_percentage}%"></div>
+                                    </div>
+                                    <small>${order.fill_percentage.toFixed(1)}%</small>
+                                </td>
+                                <td><span class="badge badge-active">${order.status}</span></td>
+                                <td>${formatTime(order.created_at)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            container.innerHTML = table;
+        }
+
+        function updateTrades(data) {
+            const container = document.getElementById('tradesContent');
+
+            if (!data.success) {
+                container.innerHTML = `<div class="error-message">Error: ${data.error}</div>`;
+                return;
+            }
+
+            if (!data.trades || data.trades.length === 0) {
+                container.innerHTML = '<div class="empty-state">No recent trades</div>';
+                return;
+            }
+
+            const table = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Side</th>
+                            <th>Size</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.trades.map(trade => `
+                            <tr>
+                                <td>${trade.id.substring(0, 8)}...</td>
+                                <td><span class="badge badge-${trade.side.toLowerCase()}">${trade.side}</span></td>
+                                <td>${trade.size.toFixed(2)}</td>
+                                <td>${formatCurrency(trade.price)}</td>
+                                <td>${formatCurrency(trade.total)}</td>
+                                <td>${formatTime(trade.timestamp)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            container.innerHTML = table;
+        }
+
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`/api/${endpoint}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function refreshData() {
+            document.getElementById('lastUpdate').textContent = 'Updating...';
+
+            try {
+                // Fetch all data in parallel
+                const [summaryData, ordersData, tradesData] = await Promise.all([
+                    fetchData('summary'),
+                    fetchData('orders'),
+                    fetchData('trades')
+                ]);
+
+                // Update UI
+                updateSummary(summaryData);
+                updateOrders(ordersData);
+                updateTrades(tradesData);
+
+                // Update timestamp
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                document.getElementById('lastUpdate').textContent = 'Error';
+            }
+        }
+
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            autoRefreshInterval = setInterval(refreshData, REFRESH_INTERVAL);
+        }
+
+        // Initial load
+        refreshData();
+
+        // Start auto-refresh
+        startAutoRefresh();
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>
