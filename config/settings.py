@@ -1,8 +1,10 @@
 """Configuration management for Polymarket API."""
 
 import os
+from pathlib import Path
 from typing import Optional
 
+import pyrage
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -46,7 +48,52 @@ class PolymarketConfig(BaseSettings):
         return v
 
 
-def load_config(env_file: Optional[str] = None) -> PolymarketConfig:
+def _decrypt_private_key(
+    secrets_file: str = "secrets.key",
+    identity_file: str = "~/.ssh/Youturn",
+) -> str:
+    """Decrypt age-encrypted private key using SSH identity.
+
+    Args:
+        secrets_file: Path to age-encrypted secrets file
+        identity_file: Path to SSH private key for decryption
+
+    Returns:
+        Decrypted private key as string
+
+    Raises:
+        FileNotFoundError: If secrets or identity file not found
+        ValueError: If decryption fails
+    """
+    secrets_path = Path(secrets_file).resolve()
+    identity_path = Path(identity_file).expanduser().resolve()
+
+    if not secrets_path.exists():
+        raise FileNotFoundError(f"Encrypted secrets file not found: {secrets_path}")
+    if not identity_path.exists():
+        raise FileNotFoundError(f"SSH identity file not found: {identity_path}")
+
+    try:
+        # Read encrypted data
+        encrypted_data = secrets_path.read_bytes()
+
+        # Read SSH identity
+        ssh_key_data = identity_path.read_bytes()
+        identity = pyrage.ssh.Identity.from_buffer(ssh_key_data)
+
+        # Decrypt
+        decrypted = pyrage.decrypt(encrypted_data, [identity])
+        return decrypted.decode("utf-8").strip()
+
+    except Exception as e:
+        raise ValueError(f"Failed to decrypt private key: {e}") from e
+
+
+def load_config(
+    env_file: Optional[str] = None,
+    secrets_file: str = "secrets.age",
+    identity_file: str = "~/.ssh/Youturn",
+) -> PolymarketConfig:
     """Load and validate configuration from environment.
 
     Args:
@@ -54,24 +101,26 @@ def load_config(env_file: Optional[str] = None) -> PolymarketConfig:
                   1. ENV_FILE environment variable
                   2. Environment-specific file (.env.{ENV})
                   3. Default .env file
+        secrets_file: Path to age-encrypted secrets file (default: secrets.key)
+        identity_file: Path to SSH private key for decryption (default: ~/.ssh/Youturn)
 
     Environment priority (highest to lowest):
         1. System environment variables
-        2. .env file
-        3. Default values
+        2. Decrypted secrets.key file (for private_key)
+        3. .env file
+        4. Default values
 
     Examples:
-        # Use default .env
+        # Use default secrets.key and .env
         config = load_config()
 
-        # Use specific env file
-        config = load_config(".env.production")
+        # Use custom secrets file
+        config = load_config(secrets_file="config/secrets.age")
 
-        # Use environment-specific file
-        # export ENV=production
-        config = load_config()  # loads .env.production
+        # Use specific env file and custom identity
+        config = load_config(".env.production", identity_file="~/.ssh/prod_key")
 
-        # Override via system env
+        # Override via system env (takes precedence over secrets file)
         # export POLYMARKET_PRIVATE_KEY=abc123
         config = load_config()  # uses system env var
     """
@@ -85,6 +134,14 @@ def load_config(env_file: Optional[str] = None) -> PolymarketConfig:
         if os.path.exists(env_specific_file):
             os.environ["ENV_FILE"] = env_specific_file
         # Otherwise falls back to .env (default in SettingsConfigDict)
+
+    # Decrypt and set private key if not already in environment
+    if "POLYMARKET_PRIVATE_KEY" not in os.environ:
+        try:
+            decrypted_key = _decrypt_private_key(secrets_file, identity_file)
+            os.environ["POLYMARKET_PRIVATE_KEY"] = decrypted_key
+        except (FileNotFoundError, ValueError) as e:
+            raise RuntimeError(f"Failed to load private key from encrypted file: {e}") from e
 
     return PolymarketConfig()
 
