@@ -165,48 +165,6 @@ def display_kelly_analysis(
     print()
 
 
-def calculate_bid_ask_analysis(
-    bid: float, ask: float, true_probability: float, bankroll: float = 1000.0
-):
-    """Analyze Kelly for both bid and ask prices.
-
-    Args:
-        bid: Best bid price (where you can SELL)
-        ask: Best ask price (where you can BUY)
-        true_probability: Your estimated true probability
-        bankroll: Your available bankroll
-    """
-    print("=" * 80)
-    print("BID-ASK KELLY ANALYSIS")
-    print("=" * 80)
-    print(f"Best Bid: {format_percentage(bid)} (you can SELL here)")
-    print(f"Best Ask: {format_percentage(ask)} (you can BUY here)")
-    print(f"Spread: {format_percentage(ask - bid)}")
-    print(f"Mid-price: {format_percentage((bid + ask) / 2)}")
-    print(f"Your True Probability: {format_percentage(true_probability)}")
-    print()
-
-    # Determine which side to bet
-    if true_probability > ask:
-        print(
-            f"✅ RECOMMENDATION: BUY (your estimate {format_percentage(true_probability)} > ask {format_percentage(ask)})"
-        )
-        print()
-        display_kelly_analysis(true_probability, ask, "BUY", bankroll)
-    elif true_probability < bid:
-        print(
-            f"✅ RECOMMENDATION: SELL (your estimate {format_percentage(true_probability)} < bid {format_percentage(bid)})"
-        )
-        print()
-        display_kelly_analysis(true_probability, bid, "SELL", bankroll)
-    else:
-        print(
-            f"⚠️  NO BET: Your estimate {format_percentage(true_probability)} is within the spread"
-        )
-        print("   Market is fairly priced - no edge available")
-        print()
-
-
 def main():
     """Command-line interface for Kelly calculator."""
     parser = argparse.ArgumentParser(
@@ -217,36 +175,26 @@ Examples:
   # Single price analysis (BUY)
   %(prog)s --price 0.45 --true-prob 0.60 --side BUY
 
-  # Bid-Ask analysis (automatic side selection)
-  %(prog)s --bid 0.44 --ask 0.46 --true-prob 0.60
+  # Single price analysis (SELL)
+  %(prog)s --price 0.55 --true-prob 0.40 --side SELL
 
   # With custom bankroll
-  %(prog)s --price 0.30 --true-prob 0.50 --bankroll 5000
+  %(prog)s --price 0.30 --true-prob 0.50 --side BUY --bankroll 5000
 
   # Percentage format (converts to decimal)
-  %(prog)s --bid 44 --ask 46 --true-prob 60
+  %(prog)s --price 45 --true-prob 60 --side BUY
 
 Notes:
   - Prices can be decimals (0.45) or percentages (45)
-  - Use --bid and --ask for bid-ask spread analysis
-  - Use --price for single price analysis
+  - Use --side to specify BUY or SELL
         """,
     )
 
     parser.add_argument(
         "--price",
         type=float,
-        help="Market price (0-1 or 0-100 if percentage)",
-    )
-    parser.add_argument(
-        "--bid",
-        type=float,
-        help="Best bid price (where you can SELL)",
-    )
-    parser.add_argument(
-        "--ask",
-        type=float,
-        help="Best ask price (where you can BUY)",
+        required=True,
+        help="Execution price (0-1 or 0-100 if percentage)",
     )
     parser.add_argument(
         "--true-prob",
@@ -257,8 +205,8 @@ Notes:
     parser.add_argument(
         "--side",
         choices=["BUY", "SELL", "buy", "sell"],
-        default="BUY",
-        help="Which side to bet (only used with --price)",
+        required=True,
+        help="Order side: BUY or SELL",
     )
     parser.add_argument(
         "--bankroll",
@@ -274,40 +222,18 @@ Notes:
         return p / 100 if p > 1 else p
 
     true_prob = normalize_prob(args.true_prob)
+    price = normalize_prob(args.price)
 
     # Validate probability range
     if not 0 <= true_prob <= 1:
         print("Error: true-prob must be between 0-1 or 0-100")
         return
 
-    # Check if we have bid-ask or single price
-    if args.bid is not None and args.ask is not None:
-        bid = normalize_prob(args.bid)
-        ask = normalize_prob(args.ask)
-
-        if not 0 <= bid <= 1 or not 0 <= ask <= 1:
-            print("Error: bid and ask must be between 0-1 or 0-100")
-            return
-
-        if bid >= ask:
-            print("Error: bid must be less than ask")
-            return
-
-        calculate_bid_ask_analysis(bid, ask, true_prob, args.bankroll)
-
-    elif args.price is not None:
-        price = normalize_prob(args.price)
-
-        if not 0 <= price <= 1:
-            print("Error: price must be between 0-1 or 0-100")
-            return
-
-        display_kelly_analysis(true_prob, price, args.side.upper(), args.bankroll)
-
-    else:
-        print("Error: Must provide either --price or both --bid and --ask")
-        parser.print_help()
+    if not 0 <= price <= 1:
+        print("Error: price must be between 0-1 or 0-100")
         return
+
+    display_kelly_analysis(true_prob, price, args.side.upper(), args.bankroll)
 
 
 if __name__ == "__main__":

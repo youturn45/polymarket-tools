@@ -3,8 +3,7 @@
 import logging
 import webbrowser
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 from flask import Flask, jsonify, render_template
 from flask_cors import CORS
@@ -69,7 +68,7 @@ def format_trade_data(trade: dict) -> dict:
     }
 
 
-def get_balance_summary(orders: List[dict]) -> dict:
+def get_balance_summary(orders: list[dict]) -> dict:
     """Calculate balance summary from open orders."""
     total_buy_exposure = sum(
         float(o.get("original_size", 0)) * float(o.get("price", 0))

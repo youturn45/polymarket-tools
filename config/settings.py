@@ -8,6 +8,8 @@ import pyrage
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from config.encryption import decrypt_secret
+
 
 class PolymarketConfig(BaseSettings):
     """Polymarket API configuration."""
@@ -32,6 +34,16 @@ class PolymarketConfig(BaseSettings):
         default="", description="Funder address for proxy wallets"
     )
 
+    # Database settings
+    db_path: str = Field(
+        default="data/orders.db", description="SQLite database path for order persistence"
+    )
+
+    # Concurrency settings
+    max_concurrent_orders: int = Field(
+        default=5, ge=1, le=20, description="Maximum concurrent order executions"
+    )
+
     @field_validator("private_key")
     @classmethod
     def validate_private_key(cls, v: str) -> str:
@@ -49,7 +61,7 @@ class PolymarketConfig(BaseSettings):
 
 
 def _decrypt_private_key(
-    secrets_file: str = "secrets.key",
+    secrets_file: str = "secrets.age",
     identity_file: str = "~/.ssh/Youturn",
 ) -> str:
     """Decrypt age-encrypted private key using SSH identity.
@@ -65,28 +77,7 @@ def _decrypt_private_key(
         FileNotFoundError: If secrets or identity file not found
         ValueError: If decryption fails
     """
-    secrets_path = Path(secrets_file).resolve()
-    identity_path = Path(identity_file).expanduser().resolve()
-
-    if not secrets_path.exists():
-        raise FileNotFoundError(f"Encrypted secrets file not found: {secrets_path}")
-    if not identity_path.exists():
-        raise FileNotFoundError(f"SSH identity file not found: {identity_path}")
-
-    try:
-        # Read encrypted data
-        encrypted_data = secrets_path.read_bytes()
-
-        # Read SSH identity
-        ssh_key_data = identity_path.read_bytes()
-        identity = pyrage.ssh.Identity.from_buffer(ssh_key_data)
-
-        # Decrypt
-        decrypted = pyrage.decrypt(encrypted_data, [identity])
-        return decrypted.decode("utf-8").strip()
-
-    except Exception as e:
-        raise ValueError(f"Failed to decrypt private key: {e}") from e
+    return decrypt_secret(secrets_file, identity_file)
 
 
 def load_config(
@@ -101,17 +92,17 @@ def load_config(
                   1. ENV_FILE environment variable
                   2. Environment-specific file (.env.{ENV})
                   3. Default .env file
-        secrets_file: Path to age-encrypted secrets file (default: secrets.key)
+        secrets_file: Path to age-encrypted secrets file (default: secrets.age)
         identity_file: Path to SSH private key for decryption (default: ~/.ssh/Youturn)
 
     Environment priority (highest to lowest):
         1. System environment variables
-        2. Decrypted secrets.key file (for private_key)
+        2. Decrypted secrets.age file (for private_key)
         3. .env file
         4. Default values
 
     Examples:
-        # Use default secrets.key and .env
+        # Use default secrets.age and .env
         config = load_config()
 
         # Use custom secrets file

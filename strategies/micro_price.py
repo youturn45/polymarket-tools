@@ -2,9 +2,11 @@
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Optional
 
 from api.polymarket_client import PolymarketClient
+from core.event_bus import EventBus, OrderEvent, OrderEventData
 from core.market_monitor import MarketMonitor
 from models.enums import OrderSide, OrderStatus
 from models.order import Order
@@ -24,12 +26,14 @@ class MicroPriceStrategy:
     - Automatic cancellation and replacement when out of bounds
     - Aggression limit to avoid placing orders too far from competition
     - Respects maximum adjustment limit
+    - Event-driven status updates
     """
 
     def __init__(
         self,
         client: PolymarketClient,
         monitor: MarketMonitor,
+        event_bus: Optional[EventBus] = None,
         logger: Optional[logging.Logger] = None,
     ):
         """Initialize micro-price strategy.
@@ -37,10 +41,12 @@ class MicroPriceStrategy:
         Args:
             client: Polymarket API client
             monitor: Market monitor for tracking micro-price
+            event_bus: Event bus for order events
             logger: Optional logger instance
         """
         self.client = client
         self.monitor = monitor
+        self.event_bus = event_bus
         self.logger = logger or logging.getLogger(__name__)
 
         # Active order tracking
@@ -186,6 +192,18 @@ class MicroPriceStrategy:
 
         self.logger.info(f"Placed order {order_id} at {price:.4f} for {order.remaining_amount}")
 
+        # Emit ACTIVE event
+        if self.event_bus:
+            await self.event_bus.publish(
+                OrderEventData(
+                    event=OrderEvent.ACTIVE,
+                    order_id=order.order_id,
+                    timestamp=datetime.now(),
+                    order_state=order,
+                    details={"price": price, "size": order.remaining_amount},
+                )
+            )
+
         return order_id
 
     async def _should_replace_order(
@@ -225,6 +243,17 @@ class MicroPriceStrategy:
             self.logger.info(
                 f"❌ Order OUT of bounds: {distance:.2%} > {threshold:.2%} → WILL REPLACE"
             )
+            # Emit undercut event
+            if self.event_bus:
+                await self.event_bus.publish(
+                    OrderEventData(
+                        event=OrderEvent.UNDERCUT,
+                        order_id=order.order_id,
+                        timestamp=datetime.now(),
+                        order_state=order,
+                        details={"reason": "out_of_bounds", "distance": distance},
+                    )
+                )
             return True
 
         # Log that order is within bounds
@@ -246,6 +275,20 @@ class MicroPriceStrategy:
                 self.logger.info(
                     f"❌ Buy order TOO AGGRESSIVE: {distance_from_best:.2%} > {aggression_limit:.2%} → WILL REPLACE"
                 )
+                # Emit undercut event
+                if self.event_bus:
+                    await self.event_bus.publish(
+                        OrderEventData(
+                            event=OrderEvent.UNDERCUT,
+                            order_id=order.order_id,
+                            timestamp=datetime.now(),
+                            order_state=order,
+                            details={
+                                "reason": "too_aggressive_buy",
+                                "distance": distance_from_best,
+                            },
+                        )
+                    )
                 return True
         else:
             # For sells, check if we're too far below best ask
@@ -258,6 +301,20 @@ class MicroPriceStrategy:
                 self.logger.info(
                     f"❌ Sell order TOO AGGRESSIVE: {distance_from_best:.2%} > {aggression_limit:.2%} → WILL REPLACE"
                 )
+                # Emit undercut event
+                if self.event_bus:
+                    await self.event_bus.publish(
+                        OrderEventData(
+                            event=OrderEvent.UNDERCUT,
+                            order_id=order.order_id,
+                            timestamp=datetime.now(),
+                            order_state=order,
+                            details={
+                                "reason": "too_aggressive_sell",
+                                "distance": distance_from_best,
+                            },
+                        )
+                    )
                 return True
 
         self.logger.info("✅ Order is competitive → keeping order")
@@ -286,6 +343,21 @@ class MicroPriceStrategy:
             # Place new order
             new_order_id = await self._place_order(order, new_price)
             self._active_order_id = new_order_id
+
+            # Emit replaced event
+            if self.event_bus:
+                await self.event_bus.publish(
+                    OrderEventData(
+                        event=OrderEvent.REPLACED,
+                        order_id=order.order_id,
+                        timestamp=datetime.now(),
+                        order_state=order,
+                        details={
+                            "new_price": new_price,
+                            "adjustment_count": self._adjustment_count,
+                        },
+                    )
+                )
 
             return new_price
 
@@ -316,6 +388,28 @@ class MicroPriceStrategy:
                     self.logger.info(
                         f"Fill: {new_fill} (total: {order.filled_amount}/{order.total_size})"
                     )
+
+                    # Emit fill event
+                    if self.event_bus:
+                        event = (
+                            OrderEvent.FILLED
+                            if order.filled_amount == order.total_size
+                            else OrderEvent.PARTIALLY_FILLED
+                        )
+                        await self.event_bus.publish(
+                            OrderEventData(
+                                event=event,
+                                order_id=order.order_id,
+                                timestamp=datetime.now(),
+                                order_state=order,
+                                details={
+                                    "amount": new_fill,
+                                    "price": order_status.get("price", 0),
+                                    "filled_amount": order.filled_amount,
+                                    "total_size": order.total_size,
+                                },
+                            )
+                        )
 
         except Exception as e:
             self.logger.warning(f"Failed to check fills: {e}")

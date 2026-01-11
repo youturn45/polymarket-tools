@@ -19,15 +19,21 @@ class StrategyRouter:
     def __init__(
         self,
         client: PolymarketClient,
+        portfolio_monitor=None,
+        event_bus=None,
         logger: Optional[logging.Logger] = None,
     ):
         """Initialize strategy router.
 
         Args:
             client: Polymarket API client
+            portfolio_monitor: Portfolio monitor for position tracking
+            event_bus: Event bus for order events
             logger: Optional logger instance
         """
         self.client = client
+        self.portfolio_monitor = portfolio_monitor
+        self.event_bus = event_bus
         self.logger = logger or logging.getLogger(__name__)
 
     def create_order_from_request(self, request: OrderRequest) -> Order:
@@ -150,8 +156,8 @@ class StrategyRouter:
             logger=self.logger,
         )
 
-        # Create micro-price strategy
-        strategy = MicroPriceStrategy(self.client, monitor, self.logger)
+        # Create micro-price strategy with event bus
+        strategy = MicroPriceStrategy(self.client, monitor, self.event_bus, self.logger)
 
         try:
             # Execute using micro-price strategy
@@ -187,8 +193,10 @@ class StrategyRouter:
             logger=self.logger,
         )
 
-        # Create Kelly strategy
-        strategy = KellyStrategy(self.client, monitor, self.logger)
+        # Create Kelly strategy with portfolio monitor and event bus
+        strategy = KellyStrategy(
+            self.client, monitor, self.portfolio_monitor, self.event_bus, self.logger
+        )
 
         try:
             # Execute using Kelly criterion strategy
