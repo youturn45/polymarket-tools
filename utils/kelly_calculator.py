@@ -1,104 +1,24 @@
 #!/usr/bin/env python3
-"""
-Kelly Criterion Calculator for Prediction Markets
+"""Kelly Criterion Calculator CLI for Prediction Markets.
 
-Calculate optimal bet sizing using the Kelly criterion.
+Command-line interface for calculating optimal bet sizing using the Kelly criterion.
+The core calculation functions are in utils/kelly_functions.py and can be imported
+directly for programmatic use in automated trading strategies.
+
+Usage:
+    # Single price analysis (BUY)
+    python -m utils.kelly_calculator --price 0.45 --true-prob 0.60 --side BUY
+
+    # Bid-Ask analysis (automatic side selection)
+    python -m utils.kelly_calculator --bid 0.44 --ask 0.46 --true-prob 0.60
+
+    # With custom bankroll and edge bound
+    python -m utils.kelly_calculator --price 0.30 --true-prob 0.50 --bankroll 5000 --edge-upper-bound 0.10
 """
 
 import argparse
 
-
-def calculate_kelly_fraction(
-    true_probability: float,
-    market_price: float,
-    side: str = "BUY",
-    edge_upper_bound: float = 0.05,
-) -> float:
-    """Calculate Kelly fraction for a prediction market bet.
-
-    For prediction markets:
-    - If buying YES at price p: odds = (1 - p) / p
-    - If selling YES at price p: odds = p / (1 - p)
-
-    Kelly formula: f* = (b*p - q) / b
-    where:
-    - f* = fraction of bankroll to bet
-    - b = odds (payout per dollar risked)
-    - p = win probability (your true belief)
-    - q = loss probability (1 - p)
-
-    Args:
-        true_probability: Your estimated true probability (0-1)
-        market_price: Current market price (0-1)
-        side: "BUY" or "SELL"
-        edge_upper_bound: Maximum edge to use in calculation (default: 0.05 = 5%)
-                         Caps the edge to prevent over-betting on high-edge opportunities
-
-    Returns:
-        Kelly fraction (0-1)
-    """
-    # Calculate current edge
-    edge = calculate_edge(true_probability, market_price, side) / 100  # Convert to decimal
-
-    # Apply edge upper bound if needed
-    adjusted_probability = true_probability
-    if edge > edge_upper_bound:
-        # Cap the edge and derive the adjusted probability
-        # For BUY: edge = true_prob - market_price
-        # For SELL: edge = market_price - (1 - true_prob) = market_price + true_prob - 1
-        if side.upper() == "BUY":
-            adjusted_probability = market_price + edge_upper_bound
-        else:  # SELL
-            adjusted_probability = 1 - market_price + edge_upper_bound
-
-        # Clamp to valid probability range
-        adjusted_probability = max(0.0, min(1.0, adjusted_probability))
-
-    # Calculate odds based on side
-    if side.upper() == "BUY":
-        # Buying at price p, pays out 1 if win
-        # Odds: how much you win per dollar risked
-        # Win: (1 - p), Risk: p, Odds: (1 - p) / p
-        if market_price == 0:
-            return 0.0
-        odds = (1 - market_price) / market_price
-    else:  # SELL
-        # Selling at price p
-        # Win: p, Risk: (1 - p), Odds: p / (1 - p)
-        if market_price == 1:
-            return 0.0
-        odds = market_price / (1 - market_price)
-
-    # Kelly formula: f* = (odds * win_prob - loss_prob) / odds
-    # Use adjusted probability that respects edge upper bound
-    loss_probability = 1 - adjusted_probability
-    kelly_fraction = (odds * adjusted_probability - loss_probability) / odds
-
-    # Clamp to [0, 1] - never bet negative or more than 100%
-    kelly_fraction = max(0.0, min(1.0, kelly_fraction))
-
-    return kelly_fraction
-
-
-def calculate_edge(true_probability: float, market_price: float, side: str = "BUY") -> float:
-    """Calculate expected value (edge) of the bet.
-
-    Args:
-        true_probability: Your estimated true probability
-        market_price: Current market price
-        side: "BUY" or "SELL"
-
-    Returns:
-        Expected value as percentage
-    """
-    if side.upper() == "BUY":
-        # Expected value = (win_prob * payout) - (loss_prob * cost)
-        # Payout = 1 - price, Cost = price
-        ev = (true_probability * (1 - market_price)) - ((1 - true_probability) * market_price)
-    else:  # SELL
-        ev = (true_probability * market_price) - ((1 - true_probability) * (1 - market_price))
-
-    return ev * 100  # Return as percentage
+from utils.kelly_functions import calculate_edge, calculate_kelly_fraction
 
 
 def format_percentage(value: float) -> str:
