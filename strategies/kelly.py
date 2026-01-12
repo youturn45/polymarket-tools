@@ -58,6 +58,7 @@ class KellyStrategy:
         win_probability: float,
         current_price: float,
         side: OrderSide,
+        edge_upper_bound: float = 0.05,
     ) -> float:
         """Calculate Kelly fraction for position sizing.
 
@@ -72,10 +73,35 @@ class KellyStrategy:
             win_probability: Probability of winning (0-1)
             current_price: Current market price
             side: Order side (BUY or SELL)
+            edge_upper_bound: Maximum edge to use in calculation (default: 0.05 = 5%)
+                             Caps the edge to prevent over-betting on high-edge opportunities
 
         Returns:
             Kelly fraction (fraction of bankroll to bet)
         """
+        # Calculate current edge
+        if side == OrderSide.BUY:
+            edge = win_probability - current_price
+        else:
+            edge = current_price - (1 - win_probability)
+
+        # Apply edge upper bound if needed
+        adjusted_probability = win_probability
+        if edge > edge_upper_bound:
+            # Cap the edge and derive the adjusted probability
+            if side == OrderSide.BUY:
+                adjusted_probability = current_price + edge_upper_bound
+            else:
+                adjusted_probability = 1 - current_price + edge_upper_bound
+
+            # Clamp to valid probability range
+            adjusted_probability = max(0.0, min(1.0, adjusted_probability))
+
+            self.logger.info(
+                f"Edge capped: {edge:.2%} -> {edge_upper_bound:.2%}, "
+                f"adjusted probability: {win_probability:.2%} -> {adjusted_probability:.2%}"
+            )
+
         # Calculate odds based on side
         if side == OrderSide.BUY:
             # Buying at price p, pays out 1 if win
@@ -94,8 +120,9 @@ class KellyStrategy:
         # Kelly formula
         # f* = (odds * win_prob - loss_prob) / odds
         # f* = (b*p - q) / b
-        loss_probability = 1 - win_probability
-        kelly_fraction = (odds * win_probability - loss_probability) / odds
+        # Use adjusted probability that respects edge upper bound
+        loss_probability = 1 - adjusted_probability
+        kelly_fraction = (odds * adjusted_probability - loss_probability) / odds
 
         # Clamp to [0, 1] - never bet negative or more than 100%
         kelly_fraction = max(0.0, min(1.0, kelly_fraction))
@@ -118,8 +145,10 @@ class KellyStrategy:
         Returns:
             Position size in shares
         """
-        # Calculate Kelly fraction
-        kelly_fraction = self.calculate_kelly_fraction(params.win_probability, current_price, side)
+        # Calculate Kelly fraction with edge upper bound
+        kelly_fraction = self.calculate_kelly_fraction(
+            params.win_probability, current_price, side, params.edge_upper_bound
+        )
 
         # Apply Kelly fraction multiplier (for fractional Kelly)
         adjusted_fraction = kelly_fraction * params.kelly_fraction

@@ -1,83 +1,24 @@
 #!/usr/bin/env python3
-"""
-Kelly Criterion Calculator for Prediction Markets
+"""Kelly Criterion Calculator CLI for Prediction Markets.
 
-Calculate optimal bet sizing using the Kelly criterion.
+Command-line interface for calculating optimal bet sizing using the Kelly criterion.
+The core calculation functions are in utils/kelly_functions.py and can be imported
+directly for programmatic use in automated trading strategies.
+
+Usage:
+    # Single price analysis (BUY)
+    python -m utils.kelly_calculator --price 0.45 --true-prob 0.60 --side BUY
+
+    # Bid-Ask analysis (automatic side selection)
+    python -m utils.kelly_calculator --bid 0.44 --ask 0.46 --true-prob 0.60
+
+    # With custom bankroll and edge bound
+    python -m utils.kelly_calculator --price 0.30 --true-prob 0.50 --bankroll 5000 --edge-upper-bound 0.10
 """
 
 import argparse
 
-
-def calculate_kelly_fraction(
-    true_probability: float,
-    market_price: float,
-    side: str = "BUY",
-) -> float:
-    """Calculate Kelly fraction for a prediction market bet.
-
-    For prediction markets:
-    - If buying YES at price p: odds = (1 - p) / p
-    - If selling YES at price p: odds = p / (1 - p)
-
-    Kelly formula: f* = (b*p - q) / b
-    where:
-    - f* = fraction of bankroll to bet
-    - b = odds (payout per dollar risked)
-    - p = win probability (your true belief)
-    - q = loss probability (1 - p)
-
-    Args:
-        true_probability: Your estimated true probability (0-1)
-        market_price: Current market price (0-1)
-        side: "BUY" or "SELL"
-
-    Returns:
-        Kelly fraction (0-1)
-    """
-    # Calculate odds based on side
-    if side.upper() == "BUY":
-        # Buying at price p, pays out 1 if win
-        # Odds: how much you win per dollar risked
-        # Win: (1 - p), Risk: p, Odds: (1 - p) / p
-        if market_price == 0:
-            return 0.0
-        odds = (1 - market_price) / market_price
-    else:  # SELL
-        # Selling at price p
-        # Win: p, Risk: (1 - p), Odds: p / (1 - p)
-        if market_price == 1:
-            return 0.0
-        odds = market_price / (1 - market_price)
-
-    # Kelly formula: f* = (odds * win_prob - loss_prob) / odds
-    loss_probability = 1 - true_probability
-    kelly_fraction = (odds * true_probability - loss_probability) / odds
-
-    # Clamp to [0, 1] - never bet negative or more than 100%
-    kelly_fraction = max(0.0, min(1.0, kelly_fraction))
-
-    return kelly_fraction
-
-
-def calculate_edge(true_probability: float, market_price: float, side: str = "BUY") -> float:
-    """Calculate expected value (edge) of the bet.
-
-    Args:
-        true_probability: Your estimated true probability
-        market_price: Current market price
-        side: "BUY" or "SELL"
-
-    Returns:
-        Expected value as percentage
-    """
-    if side.upper() == "BUY":
-        # Expected value = (win_prob * payout) - (loss_prob * cost)
-        # Payout = 1 - price, Cost = price
-        ev = (true_probability * (1 - market_price)) - ((1 - true_probability) * market_price)
-    else:  # SELL
-        ev = (true_probability * market_price) - ((1 - true_probability) * (1 - market_price))
-
-    return ev * 100  # Return as percentage
+from utils.kelly_functions import calculate_edge, calculate_kelly_fraction
 
 
 def format_percentage(value: float) -> str:
@@ -95,6 +36,7 @@ def display_kelly_analysis(
     market_price: float,
     side: str,
     bankroll: float = 1000.0,
+    edge_upper_bound: float = 0.05,
 ):
     """Display comprehensive Kelly analysis.
 
@@ -103,6 +45,7 @@ def display_kelly_analysis(
         market_price: Current market price
         side: "BUY" or "SELL"
         bankroll: Your available bankroll
+        edge_upper_bound: Maximum edge to use in calculation (default: 0.05 = 5%)
     """
     print("=" * 80)
     print("KELLY CRITERION ANALYSIS")
@@ -111,6 +54,7 @@ def display_kelly_analysis(
     print(f"Market Price: {format_percentage(market_price)}")
     print(f"Your True Probability: {format_percentage(true_probability)}")
     print(f"Bankroll: {format_currency(bankroll)}")
+    print(f"Edge Upper Bound: {format_percentage(edge_upper_bound)}")
     print()
 
     # Calculate edge
@@ -123,10 +67,16 @@ def display_kelly_analysis(
         return
 
     print("✅ Positive edge detected")
+
+    # Check if edge exceeds upper bound
+    if edge / 100 > edge_upper_bound:
+        print(f"⚠️  Edge ({edge:.2f}%) exceeds upper bound ({edge_upper_bound * 100:.2f}%)")
+        print(f"   Kelly calculation will use capped edge of {edge_upper_bound * 100:.2f}%")
+
     print()
 
-    # Calculate full Kelly
-    kelly_full = calculate_kelly_fraction(true_probability, market_price, side)
+    # Calculate full Kelly with edge upper bound
+    kelly_full = calculate_kelly_fraction(true_probability, market_price, side, edge_upper_bound)
 
     if kelly_full == 0:
         print("Kelly criterion recommends: DO NOT BET (0% of bankroll)")
@@ -166,7 +116,7 @@ def display_kelly_analysis(
 
 
 def calculate_bid_ask_analysis(
-    bid: float, ask: float, true_probability: float, bankroll: float = 1000.0
+    bid: float, ask: float, true_probability: float, bankroll: float = 1000.0, edge_upper_bound: float = 0.05
 ):
     """Analyze Kelly for both bid and ask prices.
 
@@ -175,6 +125,7 @@ def calculate_bid_ask_analysis(
         ask: Best ask price (where you can BUY)
         true_probability: Your estimated true probability
         bankroll: Your available bankroll
+        edge_upper_bound: Maximum edge to use in calculation (default: 0.05 = 5%)
     """
     print("=" * 80)
     print("BID-ASK KELLY ANALYSIS")
@@ -192,13 +143,13 @@ def calculate_bid_ask_analysis(
             f"✅ RECOMMENDATION: BUY (your estimate {format_percentage(true_probability)} > ask {format_percentage(ask)})"
         )
         print()
-        display_kelly_analysis(true_probability, ask, "BUY", bankroll)
+        display_kelly_analysis(true_probability, ask, "BUY", bankroll, edge_upper_bound)
     elif true_probability < bid:
         print(
             f"✅ RECOMMENDATION: SELL (your estimate {format_percentage(true_probability)} < bid {format_percentage(bid)})"
         )
         print()
-        display_kelly_analysis(true_probability, bid, "SELL", bankroll)
+        display_kelly_analysis(true_probability, bid, "SELL", bankroll, edge_upper_bound)
     else:
         print(
             f"⚠️  NO BET: Your estimate {format_percentage(true_probability)} is within the spread"
@@ -266,6 +217,12 @@ Notes:
         default=1000.0,
         help="Your available bankroll (default: $1000)",
     )
+    parser.add_argument(
+        "--edge-upper-bound",
+        type=float,
+        default=0.05,
+        help="Maximum edge to use in Kelly calculation (default: 0.05 = 5%%). Caps edge to prevent over-betting.",
+    )
 
     args = parser.parse_args()
 
@@ -274,10 +231,16 @@ Notes:
         return p / 100 if p > 1 else p
 
     true_prob = normalize_prob(args.true_prob)
+    edge_bound = normalize_prob(args.edge_upper_bound)
 
     # Validate probability range
     if not 0 <= true_prob <= 1:
         print("Error: true-prob must be between 0-1 or 0-100")
+        return
+
+    # Validate edge upper bound
+    if not 0 < edge_bound <= 1:
+        print("Error: edge-upper-bound must be between 0-1 or 0-100")
         return
 
     # Check if we have bid-ask or single price
@@ -293,7 +256,7 @@ Notes:
             print("Error: bid must be less than ask")
             return
 
-        calculate_bid_ask_analysis(bid, ask, true_prob, args.bankroll)
+        calculate_bid_ask_analysis(bid, ask, true_prob, args.bankroll, edge_bound)
 
     elif args.price is not None:
         price = normalize_prob(args.price)
@@ -302,7 +265,7 @@ Notes:
             print("Error: price must be between 0-1 or 0-100")
             return
 
-        display_kelly_analysis(true_prob, price, args.side.upper(), args.bankroll)
+        display_kelly_analysis(true_prob, price, args.side.upper(), args.bankroll, edge_bound)
 
     else:
         print("Error: Must provide either --price or both --bid and --ask")
