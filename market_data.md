@@ -1,3 +1,71 @@
+## Market Update - 2026-01-14 13:36:09
+
+**Will Anaconda make 70 million or more domestically by January 31?**
+
+- Market ID: `133529`
+- Status: 🟢 Active
+- Volume: $37,622.26
+- Open Interest: $0.00
+
+| Sub-Market | Question | Best Bid | Best Ask | Last Price | 24h Change | Volume |
+|------------|----------|----------|----------|------------|------------|--------|
+|  | Will Anaconda make 70 million or more domestically... | 0.038 | 0.069 | 0.059 | +1.40% | $37,622 |
+
+### Token IDs (Copy from here)
+
+<details>
+<summary><strong></strong></summary>
+
+**YES Token:**
+```
+60412374820024924758053558482044088743533117457994789569213309971131921317937
+```
+
+**NO Token:**
+```
+52127162396460040567563202682833321931303548349198417090429625957662262953454
+```
+
+Market ID: `1067511`
+
+</details>
+
+
+---
+## Market Update - 2026-01-14 13:19:57
+
+**Khamenei out as Supreme Leader of Iran by January 31?**
+
+- Market ID: `143573`
+- Status: 🟢 Active
+- Volume: $20,853,919.34
+- Open Interest: $0.00
+
+| Sub-Market | Question | Best Bid | Best Ask | Last Price | 24h Change | Volume |
+|------------|----------|----------|----------|------------|------------|--------|
+|  | Khamenei out as Supreme Leader of Iran by January ... | 0.210 | 0.220 | 0.220 | +3.00% | $20,853,919 |
+
+### Token IDs (Copy from here)
+
+<details>
+<summary><strong></strong></summary>
+
+**YES Token:**
+```
+101434403359553929764780234916919166959889590658679054429843672204390513588056
+```
+
+**NO Token:**
+```
+62595435619678438799673612599999067112702849851098967060818869994133628780778
+```
+
+Market ID: `1106713`
+
+</details>
+
+
+---
 ## Market Update - 2026-01-05 13:54:09
 
 **Maduro mugshot released by...?**

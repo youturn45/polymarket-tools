@@ -237,9 +237,14 @@ class KellyStrategy:
             order.total_size = incremental_size
             order.remaining_amount = incremental_size
 
+            # CRITICAL: Set price bounds to use the SAME micro-price we calculated size for
+            # This ensures Kelly sizing is accurate (size calculated for price X, order placed at price X)
+            order.min_price = current_price
+            order.max_price = current_price
+
             self.logger.info(
                 f"Calculated incremental position: {incremental_size} shares "
-                f"at ${current_price:.4f}"
+                f"at ${current_price:.4f} (micro-price from snapshot)"
             )
 
             # Start monitoring task for recalculation
@@ -247,6 +252,8 @@ class KellyStrategy:
 
             try:
                 # Execute using micro-price strategy
+                # NOTE: MicroPriceStrategy will use order.min_price/max_price bounds
+                # which we just set to the current_price, ensuring it places at our calculated price
                 result = await self.micro_price_strategy.execute(order, params.micro_price_params)
 
                 self.logger.info(
@@ -340,9 +347,14 @@ class KellyStrategy:
                 except Exception as e:
                     self.logger.error(f"Failed to cancel order: {e}")
 
-            # Update order size
+            # Update order size and price bounds
             order.total_size = new_incremental_size
             order.remaining_amount = new_incremental_size
+
+            # CRITICAL: Update price bounds to the NEW micro-price
+            # This ensures recalculated size is accurate for the new price
+            order.min_price = current_price
+            order.max_price = current_price
 
             # Place new order if size > 0
             if new_incremental_size > 0:
@@ -364,7 +376,7 @@ class KellyStrategy:
                     )
 
                 self.logger.info(
-                    f"Position recalculated: {new_incremental_size} shares @ {current_price:.4f}"
+                    f"Position recalculated: {new_incremental_size} shares @ {current_price:.4f} (micro-price)"
                 )
             else:
                 # No more size needed
