@@ -344,3 +344,45 @@ def test_get_last_snapshot():
     assert cached is not None
     assert cached.token_id == snapshot.token_id
     assert cached.micro_price == snapshot.micro_price
+
+
+def test_fetch_and_store_snapshot_persists_levels(tmp_path):
+    """Test snapshots are persisted with top-of-book levels."""
+    client = Mock()
+    db_path = tmp_path / "market.db"
+    monitor = MarketMonitor(client, "token-123", db_path=str(db_path))
+
+    client.get_order_book.return_value = _make_order_book(
+        bids=[
+            {"price": "0.50", "size": "100"},
+            {"price": "0.49", "size": "90"},
+            {"price": "0.48", "size": "80"},
+            {"price": "0.47", "size": "70"},
+            {"price": "0.46", "size": "60"},
+        ],
+        asks=[
+            {"price": "0.51", "size": "110"},
+            {"price": "0.52", "size": "120"},
+            {"price": "0.53", "size": "130"},
+            {"price": "0.54", "size": "140"},
+            {"price": "0.55", "size": "150"},
+        ],
+    )
+    client.get_orders.return_value = []
+
+    snapshot = monitor.fetch_and_store_snapshot()
+
+    stored = monitor.get_latest_snapshot_from_db()
+    assert stored is not None
+    assert stored["token_id"] == "token-123"
+    assert stored["best_bid"] == snapshot.best_bid
+    assert stored["best_ask"] == snapshot.best_ask
+    assert len(stored["bids"]) == 5
+    assert len(stored["asks"]) == 5
+
+
+def test_monitor_default_interval():
+    """Test default polling interval."""
+    client = Mock()
+    monitor = MarketMonitor(client, "token-123")
+    assert monitor.poll_interval == 10.0

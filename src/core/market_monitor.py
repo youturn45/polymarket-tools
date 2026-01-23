@@ -1,7 +1,11 @@
 """Market monitor for tracking order book and calculating micro-price."""
 
+import asyncio
+import json
 import logging
+import sqlite3
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from api.polymarket_client import PolymarketClient
@@ -22,6 +26,8 @@ class MarketMonitor:
         client: PolymarketClient,
         token_id: str,
         band_width_bps: int = 50,
+        poll_interval: float = 10.0,
+        db_path: str = "data/market_snapshots.db",
         logger: Optional[logging.Logger] = None,
     ):
         """Initialize market monitor.
@@ -30,15 +36,41 @@ class MarketMonitor:
             client: Polymarket API client
             token_id: Token to monitor
             band_width_bps: Width of micro-price bands in basis points (default: 50 = 0.5%)
+            poll_interval: Seconds between market updates (default: 10.0)
+            db_path: SQLite path for storing snapshots
             logger: Optional logger instance
         """
         self.client = client
         self.token_id = token_id
         self.band_width_bps = band_width_bps
+        self.poll_interval = poll_interval
+        self.db_path = Path(db_path)
         self.logger = logger or logging.getLogger(__name__)
 
         # Cache for latest snapshot
         self._last_snapshot: Optional[MarketSnapshot] = None
+        self._monitor_task: Optional[asyncio.Task] = None
+        self._running = False
+
+        self._init_db()
+
+    def _init_db(self) -> None:
+        """Initialize the SQLite database schema."""
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS market_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    token_id TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    best_bid REAL NOT NULL,
+                    best_ask REAL NOT NULL,
+                    bids_json TEXT NOT NULL,
+                    asks_json TEXT NOT NULL
+                )
+                """
+            )
 
     def calculate_micro_price(
         self,
@@ -183,6 +215,66 @@ class MarketMonitor:
             self.logger.error(f"Failed to get market snapshot: {e}")
             raise
 
+    def _serialize_levels(self, levels: list[tuple[float, int]]) -> str:
+        """Serialize order book levels to JSON."""
+        return json.dumps([{"price": price, "size": size} for price, size in levels])
+
+    def _store_snapshot(self, snapshot: MarketSnapshot) -> None:
+        """Persist snapshot to SQLite."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO market_snapshots (
+                    token_id,
+                    timestamp,
+                    best_bid,
+                    best_ask,
+                    bids_json,
+                    asks_json
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    snapshot.token_id,
+                    snapshot.timestamp.isoformat(),
+                    snapshot.best_bid,
+                    snapshot.best_ask,
+                    self._serialize_levels(snapshot.bids),
+                    self._serialize_levels(snapshot.asks),
+                ),
+            )
+
+    def fetch_and_store_snapshot(self, depth_levels: int = 5) -> MarketSnapshot:
+        """Fetch current snapshot and store it in SQLite."""
+        snapshot = self.get_market_snapshot(depth_levels=depth_levels)
+        self._store_snapshot(snapshot)
+        return snapshot
+
+    def get_latest_snapshot_from_db(self) -> Optional[dict]:
+        """Get the latest stored snapshot for this token."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT token_id, timestamp, best_bid, best_ask, bids_json, asks_json
+                FROM market_snapshots
+                WHERE token_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 1
+                """,
+                (self.token_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            token_id, timestamp, best_bid, best_ask, bids_json, asks_json = row
+            return {
+                "token_id": token_id,
+                "timestamp": timestamp,
+                "best_bid": best_bid,
+                "best_ask": best_ask,
+                "bids": json.loads(bids_json),
+                "asks": json.loads(asks_json),
+            }
+
     def _get_our_orders(self) -> list[dict]:
         """Get our active orders for this token.
 
@@ -258,3 +350,31 @@ class MarketMonitor:
             Last snapshot or None if no snapshot cached
         """
         return self._last_snapshot
+
+    async def start_monitoring(self) -> None:
+        """Start background monitoring loop."""
+        if self._running:
+            return
+        self._running = True
+        self._monitor_task = asyncio.create_task(self._monitor_loop())
+
+    async def stop_monitoring(self) -> None:
+        """Stop background monitoring loop."""
+        if not self._running:
+            return
+        self._running = False
+        if self._monitor_task and not self._monitor_task.done():
+            self._monitor_task.cancel()
+            try:
+                await self._monitor_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _monitor_loop(self) -> None:
+        """Poll market data and persist snapshots."""
+        while self._running:
+            try:
+                self.fetch_and_store_snapshot(depth_levels=5)
+            except Exception as e:
+                self.logger.warning(f"Market monitor poll failed: {e}")
+            await asyncio.sleep(self.poll_interval)
