@@ -1,11 +1,22 @@
 """Tests for market monitor."""
 
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
 from core.market_monitor import MarketMonitor
 from models.market import MarketSnapshot
+
+
+def _make_level(price: str, size: str) -> SimpleNamespace:
+    return SimpleNamespace(price=price, size=size)
+
+
+def _make_order_book(bids: list[dict], asks: list[dict]) -> SimpleNamespace:
+    bid_levels = [_make_level(level["price"], level["size"]) for level in bids]
+    ask_levels = [_make_level(level["price"], level["size"]) for level in asks]
+    return SimpleNamespace(bids=bid_levels, asks=ask_levels)
 
 
 def test_market_monitor_initialization():
@@ -159,18 +170,18 @@ def test_get_market_snapshot():
     monitor = MarketMonitor(client, "token-123")
 
     # Mock order book data
-    client.get_order_book.return_value = {
-        "bids": [
+    client.get_order_book.return_value = _make_order_book(
+        bids=[
             {"price": "0.44", "size": "1000"},
             {"price": "0.43", "size": "500"},
             {"price": "0.42", "size": "300"},
         ],
-        "asks": [
+        asks=[
             {"price": "0.46", "size": "800"},
             {"price": "0.47", "size": "600"},
             {"price": "0.48", "size": "400"},
         ],
-    }
+    )
 
     # Mock our orders
     client.get_orders.return_value = []
@@ -206,10 +217,10 @@ def test_get_market_snapshot_with_our_orders():
     monitor = MarketMonitor(client, "token-123")
 
     # Mock order book
-    client.get_order_book.return_value = {
-        "bids": [{"price": "0.44", "size": "1000"}],
-        "asks": [{"price": "0.46", "size": "800"}],
-    }
+    client.get_order_book.return_value = _make_order_book(
+        bids=[{"price": "0.44", "size": "1000"}],
+        asks=[{"price": "0.46", "size": "800"}],
+    )
 
     # Mock our orders
     client.get_orders.return_value = [
@@ -232,7 +243,7 @@ def test_get_market_snapshot_empty_book_raises():
     monitor = MarketMonitor(client, "token-123")
 
     # Mock empty order book
-    client.get_order_book.return_value = {"bids": [], "asks": []}
+    client.get_order_book.return_value = _make_order_book(bids=[], asks=[])
 
     with pytest.raises(ValueError, match="Empty order book"):
         monitor.get_market_snapshot()
@@ -319,10 +330,10 @@ def test_get_last_snapshot():
     assert monitor.get_last_snapshot() is None
 
     # Mock order book
-    client.get_order_book.return_value = {
-        "bids": [{"price": "0.44", "size": "1000"}],
-        "asks": [{"price": "0.46", "size": "800"}],
-    }
+    client.get_order_book.return_value = _make_order_book(
+        bids=[{"price": "0.44", "size": "1000"}],
+        asks=[{"price": "0.46", "size": "800"}],
+    )
     client.get_orders.return_value = []
 
     # Get snapshot

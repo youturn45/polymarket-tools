@@ -15,7 +15,7 @@ def test_strategy_router_initialization():
     client = Mock()
     logger = Mock()
 
-    router = StrategyRouter(client, logger)
+    router = StrategyRouter(client, logger=logger)
 
     assert router.client == client
     assert router.logger == logger

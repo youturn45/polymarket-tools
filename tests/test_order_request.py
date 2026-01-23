@@ -51,7 +51,7 @@ def test_micro_price_params_validation():
 
     # Invalid threshold_bps (too high)
     with pytest.raises(ValueError):
-        MicroPriceParams(threshold_bps=1001)
+        MicroPriceParams(threshold_bps=10001)
 
 
 def test_kelly_params_creation():
