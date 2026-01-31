@@ -76,6 +76,12 @@ class KellyParams(BaseModel):
         description="Available capital for position sizing",
         gt=0,
     )
+    edge_upper_bound: float = Field(
+        default=0.05,
+        description="Maximum edge to use in Kelly calculation (default: 0.05 = 5%). Caps edge to prevent over-betting.",
+        gt=0.0,
+        le=1.0,
+    )
     recalculate_interval: float = Field(
         default=5.0,
         description="Seconds between Kelly recalculations",
