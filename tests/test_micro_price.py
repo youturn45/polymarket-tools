@@ -147,6 +147,7 @@ def test_place_order():
 
     # Mock client response
     client.place_order.return_value = "exchange-order-123"
+    client.extract_order_id.side_effect = lambda response: response
 
     order = Order(
         order_id="order-1",
@@ -386,6 +387,7 @@ def test_replace_order():
     # Set active order
     strategy._active_order_id = "old-order-123"
     client.place_order.return_value = "new-order-456"
+    client.extract_order_id.side_effect = lambda response: response
 
     # Replace order
     new_price = asyncio.run(strategy._replace_order(order, params))

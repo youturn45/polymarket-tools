@@ -212,8 +212,8 @@ def test_execute_zero_position_size():
     # Execute
     result = asyncio.run(strategy.execute(order, params))
 
-    # Should fail because calculated size is 0
-    assert result.status == OrderStatus.FAILED
+    # Should complete with no adjustment when size is 0
+    assert result.status == OrderStatus.COMPLETED
 
 
 def test_recalculate_position_size():

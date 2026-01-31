@@ -4,36 +4,33 @@
 # require actual API access and are covered in phase demos and manual testing.
 # Unit tests for helper methods are below.
 
+from api.polymarket_client import PolymarketClient
 from core.order_executor import OrderExecutor
 
 
 def test_extract_order_id_from_dict():
     """Test extracting order ID from dict response."""
-    from unittest.mock import Mock
-
-    executor = OrderExecutor(client=Mock(), logger=Mock())
+    client = PolymarketClient.__new__(PolymarketClient)
 
     # Test with orderID field
     response = {"orderID": "12345", "other": "data"}
-    assert executor._extract_order_id(response) == "12345"
+    assert client.extract_order_id(response) == "12345"
 
     # Test with id field
     response = {"id": "67890", "other": "data"}
-    assert executor._extract_order_id(response) == "67890"
+    assert client.extract_order_id(response) == "67890"
 
     # Test with unknown format
     response = {"unknown": "format"}
-    assert executor._extract_order_id(response) == "unknown"
+    assert client.extract_order_id(response) == "unknown"
 
 
 def test_extract_order_id_from_string():
     """Test extracting order ID from string response."""
-    from unittest.mock import Mock
-
-    executor = OrderExecutor(client=Mock(), logger=Mock())
+    client = PolymarketClient.__new__(PolymarketClient)
 
     response = "order-id-12345"
-    assert executor._extract_order_id(response) == "order-id-12345"
+    assert client.extract_order_id(response) == "order-id-12345"
 
 
 def test_extract_filled_amount_from_response():

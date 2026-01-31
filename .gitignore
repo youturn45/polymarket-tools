@@ -63,3 +63,6 @@ dmypy.json
 state/
 data/
 backups/
+
+# age files
+*.age
