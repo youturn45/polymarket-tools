@@ -30,15 +30,15 @@ from typing import Optional
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from api.polymarket_client import PolymarketClient
-from config.settings import load_config
-from core.event_bus import EventBus
-from core.kelly_monitor_daemon import KellyMonitorDaemon
-from core.market_monitor import MarketMonitor
-from core.order_daemon import OrderDaemon
-from core.portfolio_monitor import PortfolioMonitor
-from models.enums import OrderSide
-from models.order_request import (
+from api.polymarket_client import PolymarketClient  # noqa: E402
+from config.settings import load_config  # noqa: E402
+from core.event_bus import EventBus  # noqa: E402
+from core.kelly_monitor_daemon import KellyMonitorDaemon  # noqa: E402
+from core.market_monitor import MarketMonitor  # noqa: E402
+from core.order_daemon import OrderDaemon  # noqa: E402
+from core.portfolio_monitor import PortfolioMonitor  # noqa: E402
+from models.enums import OrderSide  # noqa: E402
+from models.order_request import (  # noqa: E402
     KellyMonitorParams,
     KellyParams,
     MicroPriceParams,

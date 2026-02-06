@@ -81,9 +81,7 @@ class PolymarketClient:
                 else:
                     if on_fail:
                         return on_fail(e)
-                    self.logger.error(
-                        f"Failed to {action_name} after {self.max_retries} attempts"
-                    )
+                    self.logger.error(f"Failed to {action_name} after {self.max_retries} attempts")
                     raise
 
     def extract_order_id(self, response: dict) -> str:
@@ -144,6 +142,7 @@ class PolymarketClient:
         Raises:
             Exception: If cancellation fails after retries
         """
+
         def _action():
             response = self.client.cancel(order_id)
             self.logger.info(f"Order cancelled: {order_id}")
@@ -167,6 +166,7 @@ class PolymarketClient:
         Raises:
             Exception: If status check fails after retries
         """
+
         def _action():
             return self.client.get_order(order_id)
 
@@ -188,6 +188,7 @@ class PolymarketClient:
         Raises:
             Exception: If request fails after retries
         """
+
         def _action():
             return self.client.get_order_book(token_id)
 
@@ -237,6 +238,7 @@ class PolymarketClient:
         Raises:
             Exception: If tick size fetch fails after retries
         """
+
         def _action():
             tick_size_str = self.client.get_tick_size(token_id)
             tick_size = float(tick_size_str)
@@ -245,8 +247,7 @@ class PolymarketClient:
 
         def _on_fail(_error: Exception) -> float:
             self.logger.warning(
-                f"Failed to get tick size after {self.max_retries} attempts, "
-                f"defaulting to 0.01"
+                f"Failed to get tick size after {self.max_retries} attempts, " f"defaulting to 0.01"
             )
             return 0.01
 

@@ -8,7 +8,6 @@ from api.polymarket_client import PolymarketClient
 from config.settings import load_config
 from core.market_monitor import MarketMonitor
 
-
 TOKEN_ID = "62595435619678438799673612599999067112702849851098967060818869994133628780778"
 
 

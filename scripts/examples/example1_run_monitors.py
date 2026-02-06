@@ -17,10 +17,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from api.polymarket_client import PolymarketClient
-from config.settings import load_config
-from core.market_monitor import MarketMonitor
-from core.portfolio_monitor import PortfolioMonitor
+from api.polymarket_client import PolymarketClient  # noqa: E402
+from config.settings import load_config  # noqa: E402
+from core.market_monitor import MarketMonitor  # noqa: E402
+from core.portfolio_monitor import PortfolioMonitor  # noqa: E402
 
 
 def setup_logging():

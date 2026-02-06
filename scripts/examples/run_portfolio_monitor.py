@@ -21,17 +21,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-import logging
-import sys
-from datetime import datetime
-from pathlib import Path
+import logging  # noqa: E402
+import sys  # noqa: E402
+from datetime import datetime  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from api.polymarket_client import PolymarketClient
-from config.settings import load_config
-from core.portfolio_monitor import PortfolioMonitor
+from api.polymarket_client import PolymarketClient  # noqa: E402
+from config.settings import load_config  # noqa: E402
+from core.portfolio_monitor import PortfolioMonitor  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

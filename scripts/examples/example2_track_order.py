@@ -14,20 +14,20 @@ import argparse
 import asyncio
 import logging
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from py_clob_client.clob_types import OrderType
+from py_clob_client.clob_types import OrderType  # noqa: E402
 
-from api.polymarket_client import PolymarketClient
-from config.settings import load_config
-from core.fill_tracker import FillTracker
-from core.market_monitor import MarketMonitor
-from core.portfolio_monitor import PortfolioMonitor
+from api.polymarket_client import PolymarketClient  # noqa: E402
+from config.settings import load_config  # noqa: E402
+from core.fill_tracker import FillTracker  # noqa: E402
+from core.market_monitor import MarketMonitor  # noqa: E402
+from core.portfolio_monitor import PortfolioMonitor  # noqa: E402
 
 
 def setup_logging():

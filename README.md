@@ -199,8 +199,45 @@ The system uses an event bus for loose coupling:
 
 ## Finding Token IDs
 
-Token IDs are long numeric strings identifying specific market outcomes (YES/NO). Find them via:
+Token IDs are long numeric strings identifying specific market outcomes (YES/NO). Use the included Gamma API parser to explore markets and find token IDs:
 
+### Using the Gamma Parser
+
+```bash
+# Interactive mode - prompts for slug or URL
+python src/utils/gamma_parse.py
+
+# Enter a slug when prompted
+# Then enter: 2024-presidential-election-winner
+
+# Or use the API directly
+curl https://gamma-api.polymarket.com/events/slug/2024-presidential-election-winner
+```
+
+The parser will display:
+- Market summary (title, status, volume)
+- Sub-markets with current prices
+- **Token IDs for YES/NO outcomes** (copy these for trading)
+- Best bid/ask spreads
+- 24-hour price changes
+
+Example output:
+```
+SUB-MARKETS:
+[1] Trump
+    Question: Will Donald Trump win the 2024 election?
+    Token IDs:
+      Yes: 21742633143463906290569050155826241533067272736897614950488156847949938836455
+      No:  62595435619678438799673612599999067112702849851098967060818869994133628780778
+    Best Bid: 0.520
+    Best Ask: 0.540
+```
+
+**Export Options:**
+- Export token IDs to JSON for easy copy-paste
+- Save market data to markdown table for tracking
+
+**Other methods:**
 1. **Polymarket API**: https://gamma-api.polymarket.com/events/slug/MARKET_SLUG
 2. **Market URLs**: Extract from Polymarket market pages
 3. **Example token ID**: `62595435619678438799673612599999067112702849851098967060818869994133628780778`

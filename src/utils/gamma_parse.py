@@ -10,7 +10,7 @@ import requests
 
 
 def fetch_market_data(url: str) -> dict:
-    """Fetch market data from API"""
+    """Fetch market data from API."""
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
@@ -18,6 +18,14 @@ def fetch_market_data(url: str) -> dict:
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data: {e}")
         return None
+
+
+def build_gamma_url(input_value: str) -> str:
+    """Build a Gamma API URL from a slug or full URL."""
+    if input_value.startswith("http://") or input_value.startswith("https://"):
+        return input_value
+    slug = input_value.strip().lstrip("/")
+    return f"https://gamma-api.polymarket.com/events/slug/{slug}"
 
 
 def parse_token_ids(token_ids_str: str) -> list[str]:
@@ -229,12 +237,14 @@ def main():
     # Get URL from user
     print("Polymarket API Parser")
     print("-" * 80)
-    url = input("Enter API URL (or press Enter for example): ").strip()
+    user_input = input("Enter market slug or API URL (or press Enter for example): ").strip()
 
     # Default to example URL if none provided
-    if not url:
-        url = "https://gamma-api.polymarket.com/markets/27824"
-        print(f"Using example: {url}")
+    if not user_input:
+        user_input = "2024-presidential-election-winner"
+        print(f"Using example slug: {user_input}")
+
+    url = build_gamma_url(user_input)
 
     print(f"\nFetching data from: {url}\n")
 

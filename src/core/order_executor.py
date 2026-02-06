@@ -238,6 +238,7 @@ class OrderExecutor:
         except Exception as e:
             self.logger.error(f"Failed to get final {context.lower()} status: {e}")
             return 0
+
     def execute_iceberg_order(
         self,
         order: Order,
